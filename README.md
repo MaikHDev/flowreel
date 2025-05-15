@@ -1,29 +1,29 @@
-# Create T3 App
+# Flowreel
+## This project was created using [Create t3 app](https://create.t3.gg/).
 
-This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
+## Also using socket io as extra feature for the chat system.
 
-## What's next? How do I make an app with this?
+### To run this project on your own computer you need to have installed:
+- #### Docker
+- #### Bun
 
-We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
+# Running this project
+### 1. You need to have downloaded or cloned this project.
+### 2. Docker has to be open and running.
+### 3. You must create a new file called .env.
+### 4. Copy the contents of .env.example and put it in .env.
+### 5. You need to fill in the blank variables with your own data.
+### 6. Lastly you have to use these commands to run the project:
+- ##### bun install
+- ##### docker-compose up -d
 
-If you are not familiar with the different technologies used in this project, please refer to the respective docs. If you still are in the wind, please join our [Discord](https://t3.gg/discord) and ask for help.
+## Bun installation:
 
-- [Next.js](https://nextjs.org)
-- [NextAuth.js](https://next-auth.js.org)
-- [Prisma](https://prisma.io)
-- [Drizzle](https://orm.drizzle.team)
-- [Tailwind CSS](https://tailwindcss.com)
-- [tRPC](https://trpc.io)
+### Windows
+Run the following command in powershell:
 
-## Learn More
+powershell -c "irm bun.sh/install.ps1|iex"
 
-To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:
+### macOS and Linux
+curl -fsSL https://bun.sh/install | bash
 
-- [Documentation](https://create.t3.gg/)
-- [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
-
-You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
-
-## How do I deploy this?
-
-Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
