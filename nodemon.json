@@ -1,0 +1,10 @@
+{
+  "watch": ["."],
+  "ext": "ts,js,json,tsx",
+  "ignore": ["node_modules", ".git", ".next"],
+  "exec": "bun run src/server.ts",
+  "legacyWatch": true,
+  "env": {
+    "NODE_ENV": "development"
+  }
+}
