@@ -41,8 +41,8 @@ export default function ChatComponent() {
             key={msg.id}
             className={`mb-2 p-2 rounded ${
               msg.sender === username
-                ? 'bg-blue-100 ml-auto'
-                : 'bg-gray-100'
+                ? 'bg-blue-500 ml-auto'
+                : 'bg-gray-500'
             }`}
             style={{ maxWidth: '80%' }}
           >
@@ -62,7 +62,7 @@ export default function ChatComponent() {
         />
         <button
           type="submit"
-          className="bg-blue-500 text-white px-4 py-1 rounded-r"
+          className="bg-blue-600 text-white px-4 py-1 rounded-r"
         >
           Send
         </button>

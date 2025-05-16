@@ -16,6 +16,9 @@
 ### 6. Lastly you have to use these commands to run the project:
 - ##### bun install
 - ##### docker-compose up -d
+### If you have run the previous commands, open up a new terminal and run:
+- ##### docker-compose exec app bun db:generate
+- ##### docker-compose exec app bun db:push
 
 ## Bun installation:
 
