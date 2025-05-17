@@ -5,6 +5,7 @@ import { db } from "~/server/db";
 import { messages, users } from "~/server/db/schema";
 import { and, eq } from "drizzle-orm";
 import type SocketMessage from "~/socket/client";
+import type { ReactNode } from "react";
 
 export function setupSocketServer(httpServer: HttpServer) {
   const io = new SocketIOServer(httpServer, {
@@ -71,17 +72,18 @@ export function setupSocketServer(httpServer: HttpServer) {
 
     socket.on(
       "delete_message",
-      async (data: { id: number; userId: string }) => {
-        try {
-          const [deletedMessage] = await db
-            .delete(messages)
-            .where(and(eq(messages.id, data.id), eq(messages.userId, data.userId)))
-            .returning();
-
-          io.emit("removed_message", deletedMessage);
-        } catch (error) {
-          console.error("Error deleting message:", error);
-        }
+      async (data: { id: number; userId: string; msg: SocketMessage }) => {
+        await db
+          .transaction(async (tx) => {
+            await tx
+              .delete(messages)
+              .where(
+                and(eq(messages.id, data.id), eq(messages.userId, data.userId)),
+              );
+          })
+          .catch(() => {
+            io.emit("failed_remove_message", data.msg);
+          });
       },
     );
 

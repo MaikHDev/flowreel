@@ -40,8 +40,8 @@ export const useSocket = () => {
       setMessages((prev) => [...prev, message]);
     });
 
-    socket.on("removed_message", (message: SocketMessage) => {
-      setMessages((prev) => prev.filter(msg => msg.id !== message.id));
+    socket.on("failed_remove_message", (message: SocketMessage) => {
+      setMessages((prev) => [...prev, message]);
     })
 
     socket.on("first_conn_receive_messages", (messages: SocketMessage[]) => {
@@ -53,7 +53,7 @@ export const useSocket = () => {
       socket?.off("connect");
       socket?.off("disconnect");
       socket?.off("receive_message");
-      socket?.off("removed_message");
+      socket?.off("failed_remove_message");
       socket?.off("first_conn_receive_messages");
 
     };
@@ -66,9 +66,10 @@ export const useSocket = () => {
     }
   };
 
-  const deleteMessage = (id: number, userId: string) => {
+  const deleteMessage = (id: number, userId: string, msg: SocketMessage) => {
     if (socket && isConnected) {
-      socket.emit("delete_message", { id, userId });
+      setMessages((prev) => prev.filter(msg => msg.id !== id));
+      socket.emit("delete_message", { id, userId,  msg});
     }
   }
 
