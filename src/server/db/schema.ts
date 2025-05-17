@@ -35,10 +35,11 @@ export const messages  = createTable(
   "messages",
   (d) => ({
     id: d.integer().primaryKey().generatedByDefaultAsIdentity(),
+    userId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => users.id),
     content: d
-      .varchar({ length: 256 })
-      .notNull(),
-    sender: d
       .varchar({ length: 256 })
       .notNull(),
     createdAt: d
@@ -46,6 +47,9 @@ export const messages  = createTable(
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),
   }),
+  (t) => [
+    index("created_by_user").on(t.userId),
+  ],
 );
 
 export const users = createTable("user", (d) => ({

@@ -62,7 +62,7 @@ export default async function Home() {
             </div>
           </div>
           {session?.user && <LatestPost />}
-          <ChatComponent/>
+          {session?.user && <ChatComponent session={session}/>}
         </div>
       </main>
     </HydrateClient>

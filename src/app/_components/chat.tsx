@@ -1,53 +1,66 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useSocket } from '~/socket/client';
+import { useEffect, useState } from "react";
+import { useSocket } from "~/socket/client";
+import type { Session } from "next-auth";
 
-export default function ChatComponent() {
-  const { isConnected, messages, sendMessage } = useSocket();
-  const [messageInput, setMessageInput] = useState('');
-  const [username, setUsername] = useState('User');
+interface ChatComponentProps {
+  session: Session;
+}
 
+export default function ChatComponent({ session }: ChatComponentProps) {
+  const { isConnected, messages, sendMessage, deleteMessage } = useSocket();
+  const [messageInput, setMessageInput] = useState("");
+  const [username, setUsername] = useState("");
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (messageInput.trim()) {
-      sendMessage(messageInput, username);
-      setMessageInput('');
+      sendMessage(session.user.id, messageInput);
+      setMessageInput("");
     }
   };
 
+  const handleDeleteMessage = (id: number, userId: string) => {
+    deleteMessage(id, userId);
+  }
+
+  useEffect(() => {
+    if (session?.user?.name) {
+      setUsername(session.user.name);
+    }
+  }, []);
+
   return (
-    <div className="flex flex-col h-screen max-w-md mx-auto p-4">
+    <div className="mx-auto flex h-screen max-w-md flex-col p-4">
       <div className="mb-4">
         <h1 className="text-2xl font-bold">Real-time Chat</h1>
         <p className="text-sm">
-          {isConnected ? '✅ Connected' : '❌ Disconnected'}
+          {isConnected ? "✅ Connected" : "❌ Disconnected"}
         </p>
       </div>
 
-      <div className="flex mb-4">
-        <input
-          type="text"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          placeholder="Your name"
-          className="px-2 py-1 border rounded mr-2"
-        />
-      </div>
+      <div className="mb-4 flex">{username}</div>
 
-      <div className="flex-1 overflow-y-auto mb-4 border rounded p-2">
+      <div className="mb-4 flex-1 overflow-y-auto rounded border p-2">
         {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`mb-2 p-2 rounded ${
-              msg.sender === username
-                ? 'bg-blue-500 ml-auto'
-                : 'bg-gray-500'
+          <div key={msg.id}
+            className={`mb-2 rounded p-2 ${
+              msg.sender === username ? "ml-auto bg-blue-500" : "bg-gray-500"
             }`}
-            style={{ maxWidth: '80%' }}
+            style={{ maxWidth: "80%" }}
           >
-            <div className="font-bold text-sm">{msg.sender}</div>
-            <div>{msg.content}</div>
+            <div className="relative">
+              {msg.sender === username && <button
+                  onClick={() => handleDeleteMessage(msg.id, session.user.id)}
+                    className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white hover:bg-red-600"
+                    title="Delete message"
+                    >
+                    ×
+                    </button>}
+
+              <div className="text-sm font-bold">{msg.sender}</div>
+              <div>{msg.content}</div>
+            </div>
           </div>
         ))}
       </div>
@@ -58,11 +71,11 @@ export default function ChatComponent() {
           value={messageInput}
           onChange={(e) => setMessageInput(e.target.value)}
           placeholder="Type a message"
-          className="flex-1 px-2 py-1 border rounded-l"
+          className="flex-1 rounded-l border px-2 py-1"
         />
         <button
           type="submit"
-          className="bg-blue-600 text-white px-4 py-1 rounded-r"
+          className="rounded-r bg-blue-600 px-4 py-1 text-white"
         >
           Send
         </button>
