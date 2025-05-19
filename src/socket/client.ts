@@ -40,9 +40,13 @@ export const useSocket = () => {
       setMessages((prev) => [...prev, message]);
     });
 
+    socket.on("removed_message", (message: SocketMessage) => {
+      setMessages((prev) => prev.filter(msg => msg.id !== message.id));
+    });
+
     socket.on("failed_remove_message", (message: SocketMessage) => {
       setMessages((prev) => [...prev, message]);
-    })
+    });
 
     socket.on("first_conn_receive_messages", (messages: SocketMessage[]) => {
       setMessages(messages);
