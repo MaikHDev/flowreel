@@ -15,6 +15,10 @@
 ### 5. You need to fill in the blank variables with your own data.
 ### 6. Lastly you have to use these commands to run the project:
 - ##### bun install
+- ##### mkdir certs
+- ##### cd certs
+- ##### mkcert -install
+- ##### mkcert localhost
 - ##### docker-compose up -d
 ### If you have run the previous commands, open up a new terminal and run:
 - ##### docker-compose exec app bun db:generate
@@ -23,10 +27,19 @@
 ## Bun installation:
 
 ### Windows
-Run the following command in powershell:
+#### Run the following command in powershell:
 
-powershell -c "irm bun.sh/install.ps1|iex"
+- powershell -c "irm bun.sh/install.ps1|iex"
 
 ### macOS and Linux
-curl -fsSL https://bun.sh/install | bash
+- curl -fsSL https://bun.sh/install | bash
 
+## mkcert installation:
+### If you already have chocolatey installed skip this step, else:
+Open a new powershell window as administrator and run this command:
+
+- Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+### Then run:
+
+- choco install mkcert

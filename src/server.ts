@@ -1,5 +1,5 @@
 // src/server.ts
-import { createServer } from 'http';
+import { createServer } from 'https';
 import { parse } from 'url';
 import next from 'next';
 import { setupSocketServer } from './socket/server';
@@ -8,8 +8,17 @@ const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });
 const handle = app.getRequestHandler();
 
+if (!process.env.SSL_KEY_PATH || !process.env.SSL_CERT_PATH) {
+  throw new Error("SSL_KEY_PATH and SSL_CERT_PATH must be defined in the environment variables.");
+}
+
+const options = {
+  key: await Bun.file(process.env.SSL_KEY_PATH).text(),
+  cert: await Bun.file(process.env.SSL_CERT_PATH).text()
+}
+
 await app.prepare().then(() => {
-  const server = createServer((req, res) => {
+  const server = createServer(options, (req, res) => {
     const parsedUrl = parse(req.url!, true); // Add non-null assertion for `req.url`
     handle(req, res, parsedUrl).catch((err) => {
       console.error('Error handling request:', err);
@@ -28,6 +37,6 @@ await app.prepare().then(() => {
       console.error('Error starting server:', err);
       process.exit(1);
     }
-    console.log(`> Ready on http://localhost:${PORT}`);
+    console.log(`> Ready on https://localhost:${PORT}`);
   });
 });

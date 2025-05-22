@@ -1,3 +1,7 @@
+networks:
+  app_network:
+    driver: bridge
+
 services:
   app:
     build:
@@ -7,12 +11,16 @@ services:
       - "3000:3000"
     depends_on:
       - db
+    environment:
+      - IS_DOCKER=true
     env_file:
       - .env
     volumes:
       - .:/app
       - app_node_modules:/app/node_modules
-
+      - ./certs:/app/certs:ro
+    networks:
+      - app_network
   db:
     image: postgres:17
     ports:
@@ -23,7 +31,8 @@ services:
       - POSTGRES_DB=${POSTGRES_DATABASE}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
+    networks:
+      - app_network
 volumes:
   postgres_data:
   app_node_modules:
