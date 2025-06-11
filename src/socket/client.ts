@@ -21,7 +21,7 @@ export const useSocket = () => {
     // Initialize socket connection
     if (!socket) {
       const socketUrl =
-        process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:3000";
+        process.env.NEXT_PUBLIC_SOCKET_URL ?? "https://localhost:3000";
       socket = io(socketUrl);
     }
 

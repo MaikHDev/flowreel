@@ -13,6 +13,7 @@ export default {
     password: env.POSTGRES_PASSWORD,
     database: env.POSTGRES_DATABASE,
     port: env.POSTGRES_PORT,
+    ssl: false,
   },
   tablesFilter: ["flowreel_*"],
 } satisfies Config;
