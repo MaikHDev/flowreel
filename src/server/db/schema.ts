@@ -31,7 +31,7 @@ export const posts = createTable(
   ],
 );
 
-export const messages  = createTable(
+export const messages = createTable(
   "messages",
   (d) => ({
     id: d.integer().primaryKey().generatedByDefaultAsIdentity(),
@@ -52,7 +52,9 @@ export const messages  = createTable(
   ],
 );
 
-export const users = createTable("user", (d) => ({
+export const users = createTable(
+    "users",
+    (d) => ({
   id: d
     .varchar({ length: 255 })
     .notNull()
@@ -60,6 +62,7 @@ export const users = createTable("user", (d) => ({
     .$defaultFn(() => crypto.randomUUID()),
   name: d.varchar({ length: 255 }),
   email: d.varchar({ length: 255 }).notNull(),
+  password: d.varchar({ length: 255 }),
   emailVerified: d
     .timestamp({
       mode: "date",

@@ -4,6 +4,8 @@ import { LatestPost } from "~/app/_components/post";
 import { auth } from "~/server/auth";
 import { api, HydrateClient } from "~/trpc/server";
 import ChatComponent from "~/app/_components/chat";
+import { SignUp } from "./_components/signup-form";
+import { SignIn } from "./_components/sign-in";
 
 export default async function Home() {
   const hello = await api.post.hello({ text: "from tRPC" });
@@ -59,8 +61,11 @@ export default async function Home() {
               >
                 {session ? "Sign out" : "Sign in"}
               </Link>
+              <SignUp />
             </div>
           </div>
+          <br />
+          <SignIn/>
           {session?.user && <LatestPost />}
           {session?.user && <ChatComponent session={session}/>}
         </div>
