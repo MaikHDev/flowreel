@@ -490,12 +490,6 @@ export const commentsRelations = relations(comments, ({one, many}) => ({
     replies: many(comments),
 }));
 
-const bytea = customType<{ data: Buffer; notNull: false; default: false }>({
-    dataType() {
-        return 'bytea';
-    },
-});
-
 export const media = createTable(
     "media",
     (d) => ({
@@ -503,8 +497,8 @@ export const media = createTable(
         postId: d
             .integer()
             .references(() => posts.id),
-        data: bytea(),
-        name: d.varchar({length: 100}).notNull(),
+        name: d.varchar({length: 100}).notNull().unique(),
+        fileUrl: d.varchar({length: 255}).notNull(),
         type: d.varchar({length: 30}).notNull(),
         context: MediaContext('context').notNull(),
         uploadedAt: d
@@ -513,7 +507,8 @@ export const media = createTable(
             .notNull(),
     }),
     (t) => [
-        index().on(t.data),
+        index().on(t.fileUrl, t.name),
+        index().on(t.fileUrl),
         index().on(t.name),
     ],
 );
