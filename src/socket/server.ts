@@ -1,13 +1,13 @@
 // src/socket/server.ts
 import {Server as SocketIOServer} from "socket.io";
-import {type Server as HttpsServer} from "https";
+import {type Server as HttpServer} from "http";
 import {db} from "~/server/db";
 import {messages, users} from "~/server/db/schema";
 import {and, eq} from "drizzle-orm";
 import type SocketMessage from "~/socket/client";
 
-export function setupSocketServer(httpsServer: HttpsServer) {
-    const io = new SocketIOServer(httpsServer, {
+export function setupSocketServer(httpServer: HttpServer) {
+    const io = new SocketIOServer(httpServer, {
         cors: {
             origin: process.env.NODE_ENV === "production" ? false : "*",
             methods: ["GET", "POST"],

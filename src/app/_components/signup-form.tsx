@@ -1,8 +1,9 @@
-"use server"
+"use server";
 
 import { db } from "~/server/db";
-import { users } from "~/server/db/schema";
+import { users, accounts } from "~/server/db/schema";
 import { eq } from "drizzle-orm";
+import { randomUUID } from "crypto";
 
 export async function SignUp() {
   async function handleSignup(formData: FormData): Promise<void> {
@@ -23,9 +24,21 @@ export async function SignUp() {
       return;
     }
 
+    const userId = randomUUID();
+
+    // 1. Create the user
     await db.insert(users).values({
+      id: userId,
       email,
       password,
+    });
+
+    // 2. Link to credentials provider
+    await db.insert(accounts).values({
+      userId,
+      type: "credentials",
+      provider: "credentials",
+      providerAccountId: email, // unique per provider
     });
   }
 

@@ -13,6 +13,14 @@ import {
 import Credentials from "next-auth/providers/credentials";
 import { getUserFromDb } from "~/actions/user.actions";
 
+const adapter = DrizzleAdapter(db, {
+  usersTable: users,
+  accountsTable: accounts,
+  sessionsTable: sessions,
+  verificationTokensTable: verificationTokens,
+});
+
+
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
  * object and keep type safety.
@@ -47,38 +55,36 @@ export const authConfig = {
       allowDangerousEmailAccountLinking: true,
     }),
     Credentials({
-      // You can specify which fields should be submitted, by adding keys to the `credentials` object.
-      // e.g. domain, username, password, 2FA token, etc.
-      credentials: {
-        email: {},
-        password: {},
-      },
-      authorize: async (credentials) => {
-        let user = null
+  credentials: {
+    email: {},
+    password: {},
+  },
+  authorize: async (credentials) => {
+  const dbUser = await getUserFromDb(credentials.email as string, credentials.password as string);
 
-        console.log("hello");
+  if (!dbUser.success || !dbUser.user) {
+    console.error("❌ Login failed:", dbUser?.message);
+    throw new Error("Invalid credentials");
+  }
 
- 
-        // logic to salt and hash password
-        // const pwHash = saltAndHashPassword(credentials.password)
- 
-        // logic to verify if the user exists
-        user = await getUserFromDb(credentials.email as string, credentials.password as string)
- 
-        if (!user) {
-          // No user found, so this is their first attempt to login
-          // Optionally, this is also the place you could do a user registration
-          throw new Error("Invalid credentials.")
-        }
+  const fullUser = await adapter.getUserByEmail!(dbUser.user.email);
 
-        if (!user.success) {
-          throw new Error(user.message)
-        }
- 
-        // return user object with their profile data
-        return user.user as User
-      },
-    }),
+  if (!fullUser) {
+    console.error("❌ User not found via adapter");
+    return null;
+  }
+
+  // ✅ Strip out extra fields like `password`
+  const { id, email, name, image, emailVerified } = fullUser;
+
+  const safeUser = { id, email, name, image, emailVerified };
+
+  console.log("✅ Returning clean user to NextAuth authorize():", safeUser);
+  return safeUser;
+}
+
+})
+
     
     /**
      * ...add more providers here.
@@ -90,19 +96,18 @@ export const authConfig = {
      * @see https://next-auth.js.org/providers/github
      */
   ],
-  adapter: DrizzleAdapter(db, {
-    usersTable: users,
-    accountsTable: accounts,
-    sessionsTable: sessions,
-    verificationTokensTable: verificationTokens,
-  }),
+  adapter: adapter,
   callbacks: {
-    session: ({ session, user }) => ({
+  session: ({ session, user }) => {
+    console.log("🧾 session callback called with:", { session, user });
+    return {
       ...session,
       user: {
         ...session.user,
         id: user.id,
       },
-    }),
+    };
   },
+}
+
 } satisfies NextAuthConfig;

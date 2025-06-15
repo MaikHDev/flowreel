@@ -83,7 +83,7 @@ export const accounts = createTable(
       .varchar({ length: 255 })
       .notNull()
       .references(() => users.id),
-    type: d.varchar({ length: 255 }).$type<AdapterAccount["type"]>().notNull(),
+    type: d.varchar({ length: 255 }).notNull(), // remove $type entirely
     provider: d.varchar({ length: 255 }).notNull(),
     providerAccountId: d.varchar({ length: 255 }).notNull(),
     refresh_token: d.text(),

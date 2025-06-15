@@ -18,7 +18,7 @@ services:
     volumes:
       - .:/app
       - app_node_modules:/app/node_modules
-      - ./certs:/app/certs:ro
+      # - ./certs:/app/certs:ro
     networks:
       - app_network
   db:
