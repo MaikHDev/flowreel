@@ -35,11 +35,12 @@ export async function SignUp() {
 
     // 2. Link to credentials provider
     await db.insert(accounts).values({
-      userId,
-      type: "credentials",
-      provider: "credentials",
-      providerAccountId: email, // unique per provider
-    });
+  userId,
+  type: "email", // ✅ this is the key fix
+  provider: "credentials",
+  providerAccountId: email,
+});
+
   }
 
   return (

@@ -1,39 +1,27 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useState } from "react";
 
 export function SignIn() {
-  const [error, setError] = useState<string | null>(null);
-
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const email = form.get("email");
     const password = form.get("password");
 
-    const res = await signIn("credentials", {
+    const result = await signIn("credentials", {
       email,
       password,
-      callbackUrl: "/", // You can set a different redirect target here
+      redirect: false, // 🔍 stop automatic redirect so we can inspect result
     });
 
-    if (res?.error) {
-      setError(res.error);
-    }
+    console.log("🧪 signIn result:", result);
   }
 
   return (
     <form onSubmit={handleSubmit}>
-      <label>
-        Email
-        <input name="email" type="email" required />
-      </label>
-      <label>
-        Password
-        <input name="password" type="password" required />
-      </label>
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      <input name="email" type="email" />
+      <input name="password" type="password" />
       <button type="submit">Sign In</button>
     </form>
   );
