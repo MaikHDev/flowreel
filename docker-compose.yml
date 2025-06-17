@@ -18,6 +18,7 @@ services:
     volumes:
       - .:/app
       - app_node_modules:/app/node_modules
+      - next:/app/.next
       - ./certs:/app/certs:ro
     networks:
       - app_network
@@ -36,3 +37,4 @@ services:
 volumes:
   postgres_data:
   app_node_modules:
+  next:
