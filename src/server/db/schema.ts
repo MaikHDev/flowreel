@@ -388,7 +388,7 @@ export const userLikedPosts = createTable(
 );
 export const userLikedPostsRelations = relations(userLikedPosts, ({one}) => ({
     user: one(users, {fields: [userLikedPosts.userId], references: [users.id]}),
-    post: one(posts, {fields: [userLikedPosts.userId], references: [posts.id]}),
+    post: one(posts, {fields: [userLikedPosts.postId], references: [posts.id]}),
 }));
 
 export const tags = createTable(
@@ -452,7 +452,7 @@ export const postUserTags = createTable(
 );
 export const postUserTagsRelations = relations(postUserTags, ({one}) => ({
     user: one(users, {fields: [postUserTags.userId], references: [users.id]}),
-    post: one(posts, {fields: [postUserTags.userId], references: [posts.id]}),
+    post: one(posts, {fields: [postUserTags.postId], references: [posts.id]}),
 }));
 
 export const comments = createTable(
@@ -485,7 +485,7 @@ export const comments = createTable(
 );
 export const commentsRelations = relations(comments, ({one, many}) => ({
     user: one(users, {fields: [comments.userId], references: [users.id]}),
-    post: one(posts, {fields: [comments.userId], references: [posts.id]}),
+    post: one(posts, {fields: [comments.postId], references: [posts.id]}),
     parent: one(comments, {fields: [comments.parentId], references: [comments.id]}),
     replies: many(comments),
 }));
