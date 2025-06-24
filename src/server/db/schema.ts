@@ -515,3 +515,21 @@ export const media = createTable(
 export const mediaRelations = relations(media, ({one}) => ({
     post: one(posts, {fields: [media.postId], references: [posts.id]}),
 }));
+
+export const follows = createTable("follows", (d) => ({
+  followerId: d.varchar({ length: 255 }).notNull().references(() => users.id),
+  followingId: d.varchar({ length: 255 }).notNull().references(() => users.id),
+  followedAt: d
+    .timestamp({ withTimezone: true })
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+}), (t) => [
+  primaryKey({ columns: [t.followerId, t.followingId] }),
+  index().on(t.followerId),
+  index().on(t.followingId),
+]);
+
+export const followsRelations = relations(follows, ({ one }) => ({
+  follower: one(users, { fields: [follows.followerId], references: [users.id] }),
+  following: one(users, { fields: [follows.followingId], references: [users.id] }),
+}));
