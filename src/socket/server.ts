@@ -27,7 +27,7 @@ export function setupSocketServer(httpsServer: HttpsServer) {
                     sender: users.name,
                 })
                 .from(messages)
-                .leftJoin(users, eq(messages.userId, users.id));
+                .leftJoin(users, eq(messages.senderId, users.id));
 
             socket.emit("first_conn_receive_messages", msgs);
         } catch (error) {
@@ -43,8 +43,10 @@ export function setupSocketServer(httpsServer: HttpsServer) {
                     const [newMessage] = await db
                         .insert(messages)
                         .values({
-                            userId: data.userId,
+                            senderId: data.userId,
                             content: data.content,
+                            type: "text",
+                            conversationId: 1,
                         })
                         .returning();
 
@@ -77,7 +79,7 @@ export function setupSocketServer(httpsServer: HttpsServer) {
                         await tx
                             .delete(messages)
                             .where(
-                                and(eq(messages.id, data.id), eq(messages.userId, data.userId)),
+                                and(eq(messages.id, data.id), eq(messages.senderId, data.userId)),
                             );
                     }).then(() => {
                         io.emit("removed_message", data.msg);
