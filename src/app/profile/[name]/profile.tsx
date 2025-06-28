@@ -6,6 +6,77 @@ import { api } from "~/trpc/react";
 import { redirect } from "next/navigation";
 import Comment from "~/app/_components/comment";
 
+const CommentItem = ({
+                       comment,
+                       level = 0,
+                       session,
+                       postId
+                     }: {
+  comment: any;
+  level?: number;
+  session: any;
+  postId: number;
+}) => {
+  const maxLevel = 3; // Limit nesting depth
+  const indentClass = `ml-${Math.min(level * 4, 12)}`; // Max indent of ml-12
+
+  return (
+    <div className={`${level > 0 ? indentClass : ''} ${level > 0 ? 'border-l-2 border-gray-200 pl-4' : ''}`}>
+      <div className="mb-3 rounded-lg bg-white p-3 shadow-sm border border-gray-100">
+        {/* Comment Header */}
+        <div className="flex items-center mb-2">
+          {comment.user.image && (
+            <img
+              src={comment.user.image}
+              alt={comment.user.name}
+              className="w-8 h-8 rounded-full mr-2"
+            />
+          )}
+          <div className="flex flex-col">
+            <span className="font-semibold text-gray-800 text-sm">
+              {comment.user.name}
+            </span>
+            <span className="text-xs text-gray-500">
+              {comment.createdAt.toLocaleDateString()} at {comment.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
+        </div>
+
+        {/* Comment Content */}
+        <p className="text-gray-700 text-sm mb-2 leading-relaxed">
+          {comment.content}
+        </p>
+
+        {/* Reply Button */}
+        {session?.user && level < maxLevel && (
+          <Comment
+            userId={session.user.id}
+            postId={postId}
+            text="Reply"
+            level={level + 1}
+            parentId={comment.id}
+          />
+        )}
+      </div>
+
+      {/* Nested Replies */}
+      {comment.replies && comment.replies.length > 0 && (
+        <div className="mt-2">
+          {comment.replies.map((reply: any) => (
+            <CommentItem
+              key={reply.id}
+              comment={reply}
+              level={level + 1}
+              session={session}
+              postId={postId}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const PostPage = ({ userName }: { userName: string }) => {
   const { data: session } = useSession();
   const { data: latestPosts, isLoading: loadingPosts } =
@@ -25,6 +96,7 @@ const PostPage = ({ userName }: { userName: string }) => {
       setPostContent("");
     },
   });
+
   const likePost = api.post.likePost.useMutation({
     onMutate: async ({ postId }) => {
       // Cancel any outgoing refetches
@@ -47,12 +119,12 @@ const PostPage = ({ userName }: { userName: string }) => {
           return old.map((post) =>
             post.id === postId
               ? {
-                  ...post,
-                  likedByCurrentUser: !post.likedByCurrentUser,
-                  likeCount: post.likedByCurrentUser
-                    ? post.likeCount - 1
-                    : post.likeCount + 1,
-                }
+                ...post,
+                likedByCurrentUser: !post.likedByCurrentUser,
+                likeCount: post.likedByCurrentUser
+                  ? post.likeCount - 1
+                  : post.likeCount + 1,
+              }
               : post,
           );
         },
@@ -80,7 +152,7 @@ const PostPage = ({ userName }: { userName: string }) => {
 
   const handleLike = async (postId: number) => {
     if (!session) {
-      redirect("/api/auth/singin");
+      redirect("/api/auth/signin"); // Fixed typo: singin -> signin
     }
     try {
       await likePost.mutateAsync({
@@ -94,19 +166,20 @@ const PostPage = ({ userName }: { userName: string }) => {
 
   useEffect(() => {
     console.log(latestPosts);
-  }, []);
+  }, [latestPosts]); // Added dependency array
 
   return (
-    <div className="flex flex-col items-center p-4">
-      {session?.user?.name == userName && (
-        <div className="w-full max-w-lg rounded-lg bg-white p-4 shadow-lg">
+    <div className="flex flex-col items-center p-4 bg-gray-50 min-h-screen">
+      {/* Post Creation Form */}
+      {session?.user?.name === userName && (
+        <div className="w-full max-w-2xl rounded-xl bg-white p-6 shadow-lg mb-6">
           <div className="mb-4 flex items-center">
             <img
               src={session?.user?.image ?? "/default-avatar.png"}
               alt="Profile"
-              className="mr-3 h-12 w-12 rounded-full"
+              className="mr-3 h-12 w-12 rounded-full border-2 border-gray-200"
             />
-            <div className="text-xl font-bold">
+            <div className="text-xl font-bold text-gray-800">
               {session?.user?.name ?? "Guest User"}
             </div>
           </div>
@@ -114,127 +187,103 @@ const PostPage = ({ userName }: { userName: string }) => {
             placeholder="What's on your mind?"
             value={postContent}
             onChange={(e) => setPostContent(e.target.value)}
-            className="w-full rounded-lg border p-2 focus:ring-2 focus:ring-blue-400 focus:outline-none"
+            className="w-full rounded-lg border border-gray-200 p-3 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:outline-none resize-none"
             rows={4}
           />
           <button
             onClick={handlePostSubmit}
-            disabled={isLoading ?? !postContent.trim()}
-            className={`mt-4 w-full rounded-lg p-2 text-white ${
+            disabled={isLoading || !postContent.trim()}
+            className={`mt-4 w-full rounded-lg p-3 text-white font-medium transition-colors ${
               isLoading || !postContent.trim()
                 ? "cursor-not-allowed bg-gray-400"
-                : "bg-blue-500 hover:bg-blue-600"
+                : "bg-blue-500 hover:bg-blue-600 active:bg-blue-700"
             }`}
           >
             {isLoading ? "Posting..." : "Post"}
           </button>
         </div>
       )}
-      <div className="mt-6 w-full max-w-lg">
-        <h2 className="mb-4 text-2xl font-bold">Latest Posts</h2>
-        {loadingPosts && "Getting posts..."}
+
+      {/* Posts Feed */}
+      <div className="w-full max-w-2xl">
+        <h2 className="mb-6 text-2xl font-bold text-gray-800">Latest Posts</h2>
+
+        {loadingPosts && (
+          <div className="flex justify-center items-center py-8">
+            <div className="text-gray-500">Getting posts...</div>
+          </div>
+        )}
+
         {latestPosts?.map((post) => (
-          <div key={post.id} className="mb-4 rounded-lg bg-gray-100 p-4 shadow">
-            <div className="mb-2 flex items-center">
-              <span className="mr-2 font-bold">{post.user.name}</span>
-              <span className="text-sm text-gray-500">{`${post.createdAt.getDate()}/${post.createdAt.getMonth()}  ${post.createdAt.getHours()}:${post.createdAt.getMinutes() < 10 ? `0${post.createdAt.getMinutes()}` : post.createdAt.getMinutes()}`}</span>
+          <div key={post.id} className="mb-6 rounded-xl bg-white p-6 shadow-lg border border-gray-100">
+            {/* Post Header */}
+            <div className="mb-4 flex items-center">
+              <img
+                src={post.user.image ?? "/default-avatar.png"}
+                alt={post.user.name}
+                className="mr-3 h-10 w-10 rounded-full border-2 border-gray-200"
+              />
+              <div className="flex flex-col">
+                <span className="font-bold text-gray-800">{post.user.name}</span>
+                <span className="text-sm text-gray-500">
+                  {`${post.createdAt.getDate()}/${post.createdAt.getMonth() + 1} at ${post.createdAt.getHours()}:${post.createdAt.getMinutes() < 10 ? `0${post.createdAt.getMinutes()}` : post.createdAt.getMinutes()}`}
+                </span>
+              </div>
             </div>
-            <p className="text-gray-800">{post.message}</p>
-            <button
-              onClick={() => handleLike(post.id)}
-              className={`mt-2 rounded-lg px-4 py-2 text-white ${
-                post.likedByCurrentUser ? "bg-pink-600" : "bg-gray-400"
-              } hover:bg-pink-700`}
-            >
-              💗 {post.likedByCurrentUser ? "Liked" : "Like"} ({post.likeCount})
-            </button>
-            <span>Comments: {post.commentCount}</span>
+
+            {/* Post Content */}
+            <p className="text-gray-800 mb-4 leading-relaxed">{post.message}</p>
+
+            {/* Post Actions */}
+            <div className="flex items-center justify-between border-t border-gray-100 pt-4">
+              <button
+                onClick={() => handleLike(post.id)}
+                className={`flex items-center space-x-2 rounded-lg px-4 py-2 text-white font-medium transition-colors ${
+                  post.likedByCurrentUser
+                    ? "bg-pink-600 hover:bg-pink-700"
+                    : "bg-gray-400 hover:bg-gray-500"
+                }`}
+              >
+                <span>💗</span>
+                <span>{post.likedByCurrentUser ? "Liked" : "Like"}</span>
+                <span>({post.likeCount})</span>
+              </button>
+
+              <div className="flex items-center text-gray-500 text-sm">
+                <span>💬 {post.commentCount} comments</span>
+              </div>
+            </div>
+
+            {/* Add Comment */}
             {session?.user && (
-              <span>
+              <div className="mt-4 pt-4 border-t border-gray-100">
                 <Comment
                   userId={session.user.id}
                   postId={post.id}
-                  text={"comment"}
+                  text="Add a comment"
                   level={0}
                   parentId={null}
-                ></Comment>
-              </span>
+                />
+              </div>
             )}
-            {post.comments.map((comment) => {
-              return (
-                <div key={comment.id}>
-                  {comment.user.image && (
-                    <span>
-                      <img
-                        src={comment.user.image}
-                        alt={comment.user.name}
-                        width={30}
-                        height={30}
-                      />
-                    </span>
-                  )}
-                  <span>{comment.user.name}</span>
-                  <p>{comment.content}</p>
-                  <p>{comment.createdAt.toDateString()}</p>
-                  {session?.user && (
-                    <Comment
-                      userId={session.user.id}
+
+            {/* Comments Section */}
+            {post.comments && post.comments.length > 0 && (
+              <div className="mt-6 pt-4 border-t border-gray-100">
+                <h3 className="font-semibold text-gray-800 mb-4">Comments</h3>
+                <div className="space-y-3">
+                  {post.comments.map((comment) => (
+                    <CommentItem
+                      key={comment.id}
+                      comment={comment}
+                      level={0}
+                      session={session}
                       postId={post.id}
-                      text={"reply"}
-                      level={1}
-                      parentId={comment.id}
-                    ></Comment>
-                  )}
-                  {comment.replies.map((reply) => {
-                    return (
-                      <div key={reply.id}>
-                        {reply.user.image && (
-                          <span>
-                            <img
-                              src={reply.user.image}
-                              alt={reply.user.name}
-                              width={30}
-                              height={30}
-                            />
-                          </span>
-                        )}
-                        <span>{reply.user.name}</span>
-                        <p>{reply.content}</p>
-                        <p>{reply.createdAt.toDateString()}</p>
-                        {session?.user && (
-                          <Comment
-                            userId={session.user.id}
-                            postId={post.id}
-                            text={"reply"}
-                            level={1}
-                            parentId={reply.id}
-                          ></Comment>
-                        )}
-                        {reply.replies.map((reply_2) => {
-                          return (
-                            <div key={reply_2.id}>
-                              {reply_2.user.image && (
-                                <span>
-                                  <img
-                                    src={reply_2.user.image}
-                                    alt={reply_2.user.name}
-                                    width={30}
-                                    height={30}
-                                  />
-                                </span>
-                              )}
-                              <span>{reply_2.user.name}</span>
-                              <p>{reply_2.content}</p>
-                              <p>{reply_2.createdAt.toDateString()}</p>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
+                    />
+                  ))}
                 </div>
-              );
-            })}
+              </div>
+            )}
           </div>
         ))}
       </div>
