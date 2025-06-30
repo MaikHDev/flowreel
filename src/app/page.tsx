@@ -1,17 +1,17 @@
 import Link from "next/link";
 
-import { LatestPost } from "~/app/_components/post";
 import { auth } from "~/server/auth";
 import { api, HydrateClient } from "~/trpc/server";
-import ChatComponent from "~/app/_components/chat";
-import type { Session } from "next-auth";
+import { SearchUsers } from "./_components/search-And-following-logic";
 
 export default async function Home() {
   const session = await auth();
 
   return (
     <HydrateClient>
-      {session?.user && <ChatComponent session={session} />}
+      <main className="flex min-h-screen align-top flex-col justify-center bg-[#F4F7F8] text-white">
+                {session?.user?.id && <SearchUsers  />}
+      </main>
     </HydrateClient>
   );
 }
