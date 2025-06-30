@@ -4,6 +4,7 @@ import PostPage from "~/app/profile/[name]/profile";
 import { db } from "~/server/db";
 import { eq } from "drizzle-orm";
 import { users } from "~/server/db/schema";
+import { HydrateClient } from "~/trpc/server";
 
 export default async function Home({
   params,
@@ -42,10 +43,10 @@ export default async function Home({
   const session = await auth();
 
   return (
-    <>
+    <HydrateClient>
       <SessionProvider session={session}>
         <PostPage userName={userName}></PostPage>
       </SessionProvider>
-    </>
+    </HydrateClient>
   );
 }

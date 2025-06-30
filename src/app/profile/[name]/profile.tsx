@@ -1,72 +1,104 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useSession } from "next-auth/react";
 import { api } from "~/trpc/react";
 import { redirect } from "next/navigation";
 import Comment from "~/app/_components/comment";
+import type { Session } from "next-auth";
 
-const CommentItem = ({
-                       comment,
-                       level = 0,
-                       session,
-                       postId
-                     }: {
-  comment: any;
-  level?: number;
-  session: any;
+export type Comment = {
+  id: number;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date | null;
+  user: {
+    // id?: string;
+    name: string;
+    image: string | null;
+  };
+  replies?: {
+    id: number;
+    content: string;
+    createdAt: Date;
+    updatedAt: Date | null;
+    user: {
+      name: string;
+      image: string | null;
+    };
+    replies?: {
+      id: number;
+      content: string;
+      createdAt: Date;
+      updatedAt: Date | null;
+      user: {
+        name: string;
+        image: string | null;
+      };
+    }[];
+  }[];
+};
+
+interface CommentProps {
+  level: 0 | 1 | 2;
+  session: Session | null;
   postId: number;
-}) => {
-  const maxLevel = 3; // Limit nesting depth
+  comment: Comment;
+}
+
+const CommentItem = ({ comment, level = 0, session, postId }: CommentProps) => {
+  const maxLevel = 2; // Limit nesting depth
   const indentClass = `ml-${Math.min(level * 4, 12)}`; // Max indent of ml-12
 
   return (
-    <div className={`${level > 0 ? indentClass : ''} ${level > 0 ? 'border-l-2 border-gray-200 pl-4' : ''}`}>
-      <div className="mb-3 rounded-lg bg-white p-3 shadow-sm border border-gray-100">
-        {/* Comment Header */}
-        <div className="flex items-center mb-2">
+    <div
+      className={`${level > 0 ? indentClass : ""} ${level > 0 ? "border-l-2 border-gray-200 pl-4" : ""}`}
+    >
+      <div className="mb-3 rounded-lg border border-gray-100 bg-white p-3 shadow-sm">
+        <div className="mb-2 flex items-center">
           {comment.user.image && (
             <img
-              src={comment.user.image}
+              src={comment.user.image }
               alt={comment.user.name}
-              className="w-8 h-8 rounded-full mr-2"
+              className="mr-2 h-8 w-8 rounded-full"
             />
           )}
           <div className="flex flex-col">
-            <span className="font-semibold text-gray-800 text-sm">
+            <span className="text-sm font-semibold text-gray-800">
               {comment.user.name}
             </span>
             <span className="text-xs text-gray-500">
-              {comment.createdAt.toLocaleDateString()} at {comment.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {comment.createdAt.toLocaleDateString()} at{" "}
+              {comment.createdAt.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </span>
           </div>
         </div>
 
-        {/* Comment Content */}
-        <p className="text-gray-700 text-sm mb-2 leading-relaxed">
+        <p className="mb-2 text-sm leading-relaxed text-gray-700">
           {comment.content}
         </p>
 
-        {/* Reply Button */}
         {session?.user && level < maxLevel && (
           <Comment
             userId={session.user.id}
             postId={postId}
             text="Reply"
-            level={level + 1}
+            level={(level + 1) as 0 | 1 | 2}
             parentId={comment.id}
           />
         )}
       </div>
 
-      {/* Nested Replies */}
       {comment.replies && comment.replies.length > 0 && (
         <div className="mt-2">
-          {comment.replies.map((reply: any) => (
+          {comment.replies.map((reply) => (
             <CommentItem
               key={reply.id}
               comment={reply}
-              level={level + 1}
+              level={(level + 1) as 0 | 1 | 2}
               session={session}
               postId={postId}
             />
@@ -119,12 +151,12 @@ const PostPage = ({ userName }: { userName: string }) => {
           return old.map((post) =>
             post.id === postId
               ? {
-                ...post,
-                likedByCurrentUser: !post.likedByCurrentUser,
-                likeCount: post.likedByCurrentUser
-                  ? post.likeCount - 1
-                  : post.likeCount + 1,
-              }
+                  ...post,
+                  likedByCurrentUser: !post.likedByCurrentUser,
+                  likeCount: post.likedByCurrentUser
+                    ? post.likeCount - 1
+                    : post.likeCount + 1,
+                }
               : post,
           );
         },
@@ -152,7 +184,7 @@ const PostPage = ({ userName }: { userName: string }) => {
 
   const handleLike = async (postId: number) => {
     if (!session) {
-      redirect("/api/auth/signin"); // Fixed typo: singin -> signin
+      redirect("/api/auth/signin");
     }
     try {
       await likePost.mutateAsync({
@@ -164,15 +196,10 @@ const PostPage = ({ userName }: { userName: string }) => {
     }
   };
 
-  useEffect(() => {
-    console.log(latestPosts);
-  }, [latestPosts]); // Added dependency array
-
   return (
-    <div className="flex flex-col items-center p-4 bg-gray-50 min-h-screen">
-      {/* Post Creation Form */}
+    <div className="flex min-h-screen flex-col items-center bg-gray-50 p-4">
       {session?.user?.name === userName && (
-        <div className="w-full max-w-2xl rounded-xl bg-white p-6 shadow-lg mb-6">
+        <div className="mb-6 w-full max-w-2xl rounded-xl bg-white p-6 shadow-lg">
           <div className="mb-4 flex items-center">
             <img
               src={session?.user?.image ?? "/default-avatar.png"}
@@ -187,13 +214,13 @@ const PostPage = ({ userName }: { userName: string }) => {
             placeholder="What's on your mind?"
             value={postContent}
             onChange={(e) => setPostContent(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 p-3 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:outline-none resize-none"
+            className="w-full resize-none rounded-lg border border-gray-200 p-3 focus:border-blue-400 focus:ring-2 focus:ring-blue-400 focus:outline-none"
             rows={4}
           />
           <button
             onClick={handlePostSubmit}
             disabled={isLoading || !postContent.trim()}
-            className={`mt-4 w-full rounded-lg p-3 text-white font-medium transition-colors ${
+            className={`mt-4 w-full rounded-lg p-3 font-medium text-white transition-colors ${
               isLoading || !postContent.trim()
                 ? "cursor-not-allowed bg-gray-400"
                 : "bg-blue-500 hover:bg-blue-600 active:bg-blue-700"
@@ -204,19 +231,20 @@ const PostPage = ({ userName }: { userName: string }) => {
         </div>
       )}
 
-      {/* Posts Feed */}
       <div className="w-full max-w-2xl">
         <h2 className="mb-6 text-2xl font-bold text-gray-800">Latest Posts</h2>
 
         {loadingPosts && (
-          <div className="flex justify-center items-center py-8">
+          <div className="flex items-center justify-center py-8">
             <div className="text-gray-500">Getting posts...</div>
           </div>
         )}
 
         {latestPosts?.map((post) => (
-          <div key={post.id} className="mb-6 rounded-xl bg-white p-6 shadow-lg border border-gray-100">
-            {/* Post Header */}
+          <div
+            key={post.id}
+            className="mb-6 rounded-xl border border-gray-100 bg-white p-6 shadow-lg"
+          >
             <div className="mb-4 flex items-center">
               <img
                 src={post.user.image ?? "/default-avatar.png"}
@@ -224,21 +252,19 @@ const PostPage = ({ userName }: { userName: string }) => {
                 className="mr-3 h-10 w-10 rounded-full border-2 border-gray-200"
               />
               <div className="flex flex-col">
-                <span className="font-bold text-gray-800">{post.user.name}</span>
+                <span className="font-bold text-gray-800">
+                  {post.user.name}
+                </span>
                 <span className="text-sm text-gray-500">
                   {`${post.createdAt.getDate()}/${post.createdAt.getMonth() + 1} at ${post.createdAt.getHours()}:${post.createdAt.getMinutes() < 10 ? `0${post.createdAt.getMinutes()}` : post.createdAt.getMinutes()}`}
                 </span>
               </div>
             </div>
-
-            {/* Post Content */}
-            <p className="text-gray-800 mb-4 leading-relaxed">{post.message}</p>
-
-            {/* Post Actions */}
+            <p className="mb-4 leading-relaxed text-gray-800">{post.message}</p>
             <div className="flex items-center justify-between border-t border-gray-100 pt-4">
               <button
                 onClick={() => handleLike(post.id)}
-                className={`flex items-center space-x-2 rounded-lg px-4 py-2 text-white font-medium transition-colors ${
+                className={`flex items-center space-x-2 rounded-lg px-4 py-2 font-medium text-white transition-colors ${
                   post.likedByCurrentUser
                     ? "bg-pink-600 hover:bg-pink-700"
                     : "bg-gray-400 hover:bg-gray-500"
@@ -249,14 +275,13 @@ const PostPage = ({ userName }: { userName: string }) => {
                 <span>({post.likeCount})</span>
               </button>
 
-              <div className="flex items-center text-gray-500 text-sm">
+              <div className="flex items-center text-sm text-gray-500">
                 <span>💬 {post.commentCount} comments</span>
               </div>
             </div>
 
-            {/* Add Comment */}
             {session?.user && (
-              <div className="mt-4 pt-4 border-t border-gray-100">
+              <div className="mt-4 border-t border-gray-100 pt-4">
                 <Comment
                   userId={session.user.id}
                   postId={post.id}
@@ -267,10 +292,9 @@ const PostPage = ({ userName }: { userName: string }) => {
               </div>
             )}
 
-            {/* Comments Section */}
             {post.comments && post.comments.length > 0 && (
-              <div className="mt-6 pt-4 border-t border-gray-100">
-                <h3 className="font-semibold text-gray-800 mb-4">Comments</h3>
+              <div className="mt-6 border-t border-gray-100 pt-4">
+                <h3 className="mb-4 font-semibold text-gray-800">Comments</h3>
                 <div className="space-y-3">
                   {post.comments.map((comment) => (
                     <CommentItem
