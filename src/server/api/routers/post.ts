@@ -1,5 +1,4 @@
 import { z } from "zod";
-
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
   comments,
@@ -8,6 +7,7 @@ import {
   users,
   follows,
   profiles,
+  blocks,
 } from "~/server/db/schema";
 import { and, desc, eq, inArray, sql, ilike } from "drizzle-orm";
 
@@ -43,20 +43,34 @@ export const postRouter = createTRPCRouter({
 
       if (currentUser === user.id) {
         canView = true;
-      } else if (visibility === "public") {
-        canView = true;
-      } else if (visibility === "followers" && currentUser) {
-        const [follow] = await ctx.db
+      } else {
+        const [blocked] = await ctx.db
           .select()
-          .from(follows)
+          .from(blocks)
           .where(
             and(
-              eq(follows.followerId, currentUser),
-              eq(follows.followingId, user.id),
-              eq(follows.accepted, true),
+              eq(blocks.blockerId, user.id),
+              eq(blocks.blockedId, currentUser!),
             ),
           );
-        canView = !!follow;
+
+        if (!blocked) {
+          if (visibility === "public") {
+            canView = true;
+          } else if (visibility === "followers" && currentUser) {
+            const [follow] = await ctx.db
+              .select()
+              .from(follows)
+              .where(
+                and(
+                  eq(follows.followerId, currentUser),
+                  eq(follows.followingId, user.id),
+                  eq(follows.accepted, true),
+                ),
+              );
+            canView = !!follow;
+          }
+        }
       }
 
       if (!canView) return [];
@@ -253,9 +267,16 @@ export const postRouter = createTRPCRouter({
 
       const followingSet = new Set(followsList.map((f) => f.followingId));
 
+      const blocksAgainstMe = await ctx.db.query.blocks.findMany({
+        where: (b, { eq }) => eq(b.blockedId, currentUserId),
+        columns: { blockerId: true },
+      });
+      const blockedBySet = new Set(blocksAgainstMe.map((b) => b.blockerId));
+
       const filteredPosts = postsWithUsers.filter((post) => {
         const visibility = profileMap.get(post.userId) ?? "public";
 
+        if (blockedBySet.has(post.userId)) return false;
         if (post.userId === currentUserId) return true;
         if (visibility === "public") return true;
         if (visibility === "followers" && followingSet.has(post.userId))

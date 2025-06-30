@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { db } from "~/server/db";
-import { users, follows } from "~/server/db/schema";
+import { users, follows, blocks } from "~/server/db/schema";
 import { ilike, and, eq, or, ne } from "drizzle-orm";
 
 export const userRouter = createTRPCRouter({
@@ -103,6 +103,27 @@ export const userRouter = createTRPCRouter({
           ),
         );
 
+      return { success: true };
+    }),
+  blockUser: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await db.insert(blocks).values({
+        blockerId: ctx.session.user.id,
+        blockedId: input.userId,
+      }).onConflictDoNothing();
+      return { success: true };
+    }),
+
+  unblockUser: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await db.delete(blocks).where(
+        and(
+          eq(blocks.blockerId, ctx.session.user.id),
+          eq(blocks.blockedId, input.userId)
+        )
+      );
       return { success: true };
     }),
 });

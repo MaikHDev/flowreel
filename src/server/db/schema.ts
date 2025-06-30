@@ -40,7 +40,11 @@ export const MediaContext = pgEnum("MediaContext", [
   "groupPicture",
   "attachment",
 ]);
-export const Visibility = pgEnum("Visibility", ["public", "private", "followers"]);
+export const Visibility = pgEnum("Visibility", [
+  "public",
+  "private",
+  "followers",
+]);
 export const messages = createTable(
   "messages",
   (d) => ({
@@ -139,7 +143,6 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   postUserTags: many(postUserTags),
   comments: many(comments),
 
-
   // One
   profile: one(profiles, {
     fields: [users.id],
@@ -158,10 +161,10 @@ export const profiles = createTable("profiles", (d) => ({
     .notNull()
     .references(() => media.id),
   displayName: d.varchar({ length: 30 }),
-  defaultPostVisibility: Visibility("Visibility").default("public")
+  defaultPostVisibility: Visibility("Visibility").default("public"),
 }));
 export const profilesRelations = relations(profiles, ({ many, one }) => ({
-//   profilePrivacy: many(profilePrivacy),
+  //   profilePrivacy: many(profilePrivacy),
   avatar: one(media, { fields: [profiles.avatar], references: [media.id] }),
   user: one(users, {
     fields: [profiles.id],
@@ -169,42 +172,11 @@ export const profilesRelations = relations(profiles, ({ many, one }) => ({
   }),
 }));
 
-// export const profilePrivacy = createTable(
-//   "profilePrivacy",
-//   (d) => ({
-//     profileId: d
-//       .varchar({ length: 255 })
-//       .notNull()
-//       .references(() => profiles.id),
-//     privacyName: d
-//       .varchar({ length: 30 })
-//       .notNull()
-//       .references(() => privacySettings.name),
-//   }),
-//   (t) => [],
-// );
-// export const profilePrivacyRelations = relations(profilePrivacy, ({ one }) => ({
-//   profile: one(profiles, {
-//     fields: [profilePrivacy.profileId],
-//     references: [profiles.id],
-//   }),
-//   privacySetting: one(privacySettings, {
-//     fields: [profilePrivacy.privacyName],
-//     references: [privacySettings.name],
-//   }),
-// }));
-
 export const privacySettings = createTable("privacySettings", (d) => ({
   name: d.varchar({ length: 30 }).notNull().unique().primaryKey(),
   resource: d.varchar({ length: 30 }).notNull(),
   visibility: Visibility("Visibility").notNull(),
 }));
-// export const privacySettingsRelations = relations(
-//   privacySettings,
-//   ({ many }) => ({
-//     profilePrivacy: many(profilePrivacy),
-//   }),
-// );
 
 export const accounts = createTable(
   "account",
@@ -279,19 +251,22 @@ export const conversations = createTable(
   }),
   (t) => [index().on(t.lastMessageAt)],
 );
-export const conversationRelations = relations(conversations, ({ many, one }) => ({
-  messages: many(messages),
-  participants: many(conversationParticipants),
+export const conversationRelations = relations(
+  conversations,
+  ({ many, one }) => ({
+    messages: many(messages),
+    participants: many(conversationParticipants),
 
-  createdByUser: one(users, {
-    fields: [conversations.createdByUser],
-    references: [users.id],
+    createdByUser: one(users, {
+      fields: [conversations.createdByUser],
+      references: [users.id],
+    }),
+    groupPicture: one(media, {
+      fields: [conversations.groupPicture],
+      references: [media.id],
+    }),
   }),
-  groupPicture: one(media, {
-    fields: [conversations.groupPicture],
-    references: [media.id],
-  }),
-}));
+);
 
 export const conversationParticipants = createTable(
   "conversationParticipants",
@@ -444,7 +419,7 @@ export const posts = createTable(
   }),
   (t) => [index().on(t.userId, t.createdAt), index().on(t.userId)],
 );
-export const postsRelations = relations(posts, ({many,  one }) => ({
+export const postsRelations = relations(posts, ({ many, one }) => ({
   postTags: many(postTags),
   likedBy: many(userLikedPosts),
   taggedUsers: many(postUserTags),
@@ -595,22 +570,71 @@ export const mediaRelations = relations(media, ({ one }) => ({
   post: one(posts, { fields: [media.postId], references: [posts.id] }),
 }));
 
-export const follows = createTable("follows", (d) => ({
-  followerId: d.varchar({ length: 255 }).notNull().references(() => users.id),
-  followingId: d.varchar({ length: 255 }).notNull().references(() => users.id),
-  followedAt: d
-    .timestamp({ withTimezone: true })
-    .default(sql`CURRENT_TIMESTAMP`)
-    .notNull(),
-  requestedAt: d.timestamp({ withTimezone: true }).defaultNow(),
-  accepted: d.boolean().default(false),
-}), (t) => [
-  primaryKey({ columns: [t.followerId, t.followingId] }),
-  index().on(t.followerId),
-  index().on(t.followingId),
-]);
+export const follows = createTable(
+  "follows",
+  (d) => ({
+    followerId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => users.id),
+    followingId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => users.id),
+    followedAt: d
+      .timestamp({ withTimezone: true })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    requestedAt: d.timestamp({ withTimezone: true }).defaultNow(),
+    accepted: d.boolean().default(false),
+  }),
+  (t) => [
+    primaryKey({ columns: [t.followerId, t.followingId] }),
+    index().on(t.followerId),
+    index().on(t.followingId),
+  ],
+);
 
 export const followsRelations = relations(follows, ({ one }) => ({
-  follower: one(users, { fields: [follows.followerId], references: [users.id] }),
-  following: one(users, { fields: [follows.followingId], references: [users.id] }),
+  follower: one(users, {
+    fields: [follows.followerId],
+    references: [users.id],
+  }),
+  following: one(users, {
+    fields: [follows.followingId],
+    references: [users.id],
+  }),
+}));
+export const blocks = createTable(
+  "blocks",
+  (d) => ({
+    id: d.integer().primaryKey().generatedByDefaultAsIdentity(),
+    blockerId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => users.id),
+    blockedId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => users.id),
+    createdAt: d
+      .timestamp({ withTimezone: true })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  }),
+  (t) => [
+    unique().on(t.blockerId, t.blockedId),
+    index().on(t.blockerId),
+    index().on(t.blockedId),
+  ],
+);
+export const blockRelations = relations(blocks, ({ one }) => ({
+  blocker: one(users, {
+    fields: [blocks.blockerId],
+    references: [users.id],
+  }),
+  blocked: one(users, {
+    fields: [blocks.blockedId],
+    references: [users.id],
+  }),
 }));

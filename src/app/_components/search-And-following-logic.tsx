@@ -11,10 +11,12 @@ export function SearchUsers() {
   const requestFollow = api.user.requestFollow.useMutation();
   const acceptFollow = api.user.acceptFollow.useMutation();
   const removeFollow = api.user.removeFollow.useMutation();
+  const blockUser = api.user.blockUser.useMutation();
+  const unblockUser = api.user.unblockUser.useMutation();
 
   const { data, refetch, isFetching } = api.user.searchUsers.useQuery(
     { query: debouncedQuery },
-    { enabled: debouncedQuery.length > 0 }
+    { enabled: debouncedQuery.length > 0 },
   );
 
   useEffect(() => {
@@ -36,7 +38,7 @@ export function SearchUsers() {
 
   function updateStatus(id: string, data: Partial<any>) {
     setResults((prev) =>
-      prev.map((user) => (user.id === id ? { ...user, ...data } : user))
+      prev.map((user) => (user.id === id ? { ...user, ...data } : user)),
     );
   }
 
@@ -47,7 +49,7 @@ export function SearchUsers() {
         onSuccess: () => {
           updateStatus(user.id, { youFollowThem: true, requestedThem: true });
         },
-      }
+      },
     );
   }
 
@@ -62,81 +64,121 @@ export function SearchUsers() {
             mutualFollow: false,
           });
         },
-      }
+      },
     );
   }
 
   function handleAccept(user: any) {
-  acceptFollow.mutate(
-    { followerId: user.id },
-    {
-      onSuccess: () => {
-        updateStatus(user.id, {
-          theyFollowYou: true,
-          mutualFollow: user.youFollowThem,
-        });
+    acceptFollow.mutate(
+      { followerId: user.id },
+      {
+        onSuccess: () => {
+          updateStatus(user.id, {
+            theyFollowYou: true,
+            mutualFollow: user.youFollowThem,
+          });
+        },
       },
-    }
-  );
-}
+    );
+  }
 
+  function handleBlock(user: any) {
+    blockUser.mutate(
+      { userId: user.id },
+      {
+        onSuccess: () => {
+          updateStatus(user.id, { youBlocked: true });
+        },
+      },
+    );
+  }
+
+  function handleUnblock(user: any) {
+    unblockUser.mutate(
+      { userId: user.id },
+      {
+        onSuccess: () => {
+          updateStatus(user.id, { youBlocked: false });
+        },
+      },
+    );
+  }
 
   return (
-    <div className="max-w-md mx-auto p-4">
+    <div className="mx-auto max-w-md p-4">
       <input
         type="text"
         placeholder="Search for users"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        className="w-full p-2 border rounded text-black"
+        className="w-full rounded border p-2 text-black"
       />
 
       <ul className="mt-4 text-black">
         {isFetching && <p>Searching...</p>}
         {results.map((user) => (
-          <li key={user.id} className="flex flex-col gap-2 py-2 border-b">
-            <div className="flex justify-between items-center text-black">
+          <li key={user.id} className="flex flex-col gap-2 border-b py-2">
+            <div className="flex items-center justify-between">
               <span>
                 {user.name} ({user.email})
               </span>
+
               <div className="flex gap-2">
-                {user.mutualFollow ? (
+                {user.youBlocked ? (
                   <button
-                    onClick={() => handleUnfollow(user)}
-                    className="px-3 py-1 rounded text-white bg-green-600"
+                    onClick={() => handleUnblock(user)}
+                    className="rounded bg-red-400 px-3 py-1 text-white"
                   >
-                    Friends
-                  </button>
-                ) : user.youFollowThem ? (
-                  <button
-                    onClick={() => handleUnfollow(user)}
-                    className="px-3 py-1 rounded text-white bg-blue-500"
-                  >
-                    Following
-                  </button>
-                ) : user.requestedThem ? (
-                  <button
-                    onClick={() => handleUnfollow(user)}
-                    className="px-3 py-1 rounded text-white bg-yellow-500"
-                  >
-                    Requested
+                    Unblock
                   </button>
                 ) : (
-                  <button
-                    onClick={() => handleFollow(user)}
-                    className="px-3 py-1 rounded text-white bg-blue-500"
-                  >
-                    Follow
-                  </button>
+                  <>
+                    <button
+                      onClick={() => handleBlock(user)}
+                      className="rounded bg-red-600 px-3 py-1 text-white"
+                    >
+                      Block
+                    </button>
+
+                    {user.mutualFollow ? (
+                      <button
+                        onClick={() => handleUnfollow(user)}
+                        className="rounded bg-green-600 px-3 py-1 text-white"
+                      >
+                        Friends
+                      </button>
+                    ) : user.youFollowThem ? (
+                      <button
+                        onClick={() => handleUnfollow(user)}
+                        className="rounded bg-blue-500 px-3 py-1 text-white"
+                      >
+                        Following
+                      </button>
+                    ) : user.requestedThem ? (
+                      <button
+                        onClick={() => handleUnfollow(user)}
+                        className="rounded bg-yellow-500 px-3 py-1 text-white"
+                      >
+                        Requested
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleFollow(user)}
+                        className="rounded bg-blue-500 px-3 py-1 text-white"
+                      >
+                        Follow
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
 
-            {user.requestedMe && !user.theyFollowYou && (
+            {!user.youBlocked && user.requestedMe && !user.theyFollowYou && (
               <div className="text-right">
                 <button
                   onClick={() => handleAccept(user)}
-                  className="px-2 py-1 text-sm rounded bg-green-600 text-white"
+                  className="rounded bg-green-600 px-2 py-1 text-sm text-white"
                 >
                   Accept Request
                 </button>
