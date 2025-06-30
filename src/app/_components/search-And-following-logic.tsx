@@ -7,24 +7,15 @@ export function SearchUsers() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [results, setResults] = useState<any[]>([]);
-  const unfollowMutation = api.user.unfollowUser.useMutation();
 
-  const { data, refetch, isFetching, error } = api.user.searchUsers.useQuery(
-  { query: debouncedQuery },
-  {
-    enabled: debouncedQuery.length > 0,
-  }
-);
+  const requestFollow = api.user.requestFollow.useMutation();
+  const acceptFollow = api.user.acceptFollow.useMutation();
+  const removeFollow = api.user.removeFollow.useMutation();
 
-if (data) {
-  console.log("Search users query successful:", data);
-}
-
-if (error) {
-  console.error("Search users query error:", error);
-}
-
-  const followMutation = api.user.followUser.useMutation();
+  const { data, refetch, isFetching } = api.user.searchUsers.useQuery(
+    { query: debouncedQuery },
+    { enabled: debouncedQuery.length > 0 }
+  );
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -34,34 +25,59 @@ if (error) {
   }, [query]);
 
   useEffect(() => {
-  console.log(`Refetching search results for query: ${debouncedQuery}`);
-  if (debouncedQuery.length > 0) {
-    refetch().then((res) => {
-      setResults(res.data ?? []);
-    });
-  } else {
-    setResults([]);
+    if (debouncedQuery.length > 0) {
+      refetch().then((res) => {
+        setResults(res.data ?? []);
+      });
+    } else {
+      setResults([]);
+    }
+  }, [debouncedQuery]);
+
+  function updateStatus(id: string, data: Partial<any>) {
+    setResults((prev) =>
+      prev.map((user) => (user.id === id ? { ...user, ...data } : user))
+    );
   }
-}, [debouncedQuery]);
 
-function toggleFollow(id: string, currentlyFollowing: boolean) {
-  setResults((prev) =>
-    prev.map((user) =>
-      user.id === id ? { ...user, followed: !currentlyFollowing } : user
-    )
+  function handleFollow(user: any) {
+    requestFollow.mutate(
+      { userId: user.id },
+      {
+        onSuccess: () => {
+          updateStatus(user.id, { youFollowThem: true, requestedThem: true });
+        },
+      }
+    );
+  }
+
+  function handleUnfollow(user: any) {
+    removeFollow.mutate(
+      { userId: user.id },
+      {
+        onSuccess: () => {
+          updateStatus(user.id, {
+            youFollowThem: false,
+            requestedThem: false,
+            mutualFollow: false,
+          });
+        },
+      }
+    );
+  }
+
+  function handleAccept(user: any) {
+  acceptFollow.mutate(
+    { followerId: user.id },
+    {
+      onSuccess: () => {
+        updateStatus(user.id, {
+          theyFollowYou: true,
+          mutualFollow: user.youFollowThem,
+        });
+      },
+    }
   );
-
-  const mutation = currentlyFollowing ? unfollowMutation : followMutation;
-
-  mutation.mutate({ userId: id }, {
-    onError: () => {
-      setResults((prev) =>
-        prev.map((user) =>
-          user.id === id ? { ...user, followed: currentlyFollowing } : user
-        )
-      );
-    },
-  });
 }
 
 
@@ -75,19 +91,57 @@ function toggleFollow(id: string, currentlyFollowing: boolean) {
         className="w-full p-2 border rounded text-black"
       />
 
-      <ul className="mt-4">
+      <ul className="mt-4 text-black">
         {isFetching && <p>Searching...</p>}
         {results.map((user) => (
-          <li key={user.id} className="flex justify-between py-2 border-b">
-            <span>{user.name} ({user.email})</span>
-            <button
-              onClick={() => toggleFollow(user.id, user.followed)}
-              className={`px-3 py-1 rounded text-white ${
-                user.followed ? "bg-green-500" : "bg-blue-500"
-              }`}
-            >
-              {user.followed ? "Following" : "Follow"}
-            </button>
+          <li key={user.id} className="flex flex-col gap-2 py-2 border-b">
+            <div className="flex justify-between items-center text-black">
+              <span>
+                {user.name} ({user.email})
+              </span>
+              <div className="flex gap-2">
+                {user.mutualFollow ? (
+                  <button
+                    onClick={() => handleUnfollow(user)}
+                    className="px-3 py-1 rounded text-white bg-green-600"
+                  >
+                    Friends
+                  </button>
+                ) : user.youFollowThem ? (
+                  <button
+                    onClick={() => handleUnfollow(user)}
+                    className="px-3 py-1 rounded text-white bg-blue-500"
+                  >
+                    Following
+                  </button>
+                ) : user.requestedThem ? (
+                  <button
+                    onClick={() => handleUnfollow(user)}
+                    className="px-3 py-1 rounded text-white bg-yellow-500"
+                  >
+                    Requested
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleFollow(user)}
+                    className="px-3 py-1 rounded text-white bg-blue-500"
+                  >
+                    Follow
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {user.requestedMe && !user.theyFollowYou && (
+              <div className="text-right">
+                <button
+                  onClick={() => handleAccept(user)}
+                  className="px-2 py-1 text-sm rounded bg-green-600 text-white"
+                >
+                  Accept Request
+                </button>
+              </div>
+            )}
           </li>
         ))}
       </ul>

@@ -40,7 +40,7 @@ export const MediaContext = pgEnum("MediaContext", [
   "groupPicture",
   "attachment",
 ]);
-export const Visibility = pgEnum("Visibility", ["public", "private"]);
+export const Visibility = pgEnum("Visibility", ["public", "private", "followers"]);
 export const messages = createTable(
   "messages",
   (d) => ({
@@ -158,9 +158,10 @@ export const profiles = createTable("profiles", (d) => ({
     .notNull()
     .references(() => media.id),
   displayName: d.varchar({ length: 30 }),
+  defaultPostVisibility: Visibility("Visibility").default("public")
 }));
 export const profilesRelations = relations(profiles, ({ many, one }) => ({
-  profilePrivacy: many(profilePrivacy),
+//   profilePrivacy: many(profilePrivacy),
   avatar: one(media, { fields: [profiles.avatar], references: [media.id] }),
   user: one(users, {
     fields: [profiles.id],
@@ -168,42 +169,42 @@ export const profilesRelations = relations(profiles, ({ many, one }) => ({
   }),
 }));
 
-export const profilePrivacy = createTable(
-  "profilePrivacy",
-  (d) => ({
-    profileId: d
-      .varchar({ length: 255 })
-      .notNull()
-      .references(() => profiles.id),
-    privacyName: d
-      .varchar({ length: 30 })
-      .notNull()
-      .references(() => privacySettings.name),
-  }),
-  (t) => [],
-);
-export const profilePrivacyRelations = relations(profilePrivacy, ({ one }) => ({
-  profile: one(profiles, {
-    fields: [profilePrivacy.profileId],
-    references: [profiles.id],
-  }),
-  privacySetting: one(privacySettings, {
-    fields: [profilePrivacy.privacyName],
-    references: [privacySettings.name],
-  }),
-}));
+// export const profilePrivacy = createTable(
+//   "profilePrivacy",
+//   (d) => ({
+//     profileId: d
+//       .varchar({ length: 255 })
+//       .notNull()
+//       .references(() => profiles.id),
+//     privacyName: d
+//       .varchar({ length: 30 })
+//       .notNull()
+//       .references(() => privacySettings.name),
+//   }),
+//   (t) => [],
+// );
+// export const profilePrivacyRelations = relations(profilePrivacy, ({ one }) => ({
+//   profile: one(profiles, {
+//     fields: [profilePrivacy.profileId],
+//     references: [profiles.id],
+//   }),
+//   privacySetting: one(privacySettings, {
+//     fields: [profilePrivacy.privacyName],
+//     references: [privacySettings.name],
+//   }),
+// }));
 
 export const privacySettings = createTable("privacySettings", (d) => ({
   name: d.varchar({ length: 30 }).notNull().unique().primaryKey(),
   resource: d.varchar({ length: 30 }).notNull(),
   visibility: Visibility("Visibility").notNull(),
 }));
-export const privacySettingsRelations = relations(
-  privacySettings,
-  ({ many }) => ({
-    profilePrivacy: many(profilePrivacy),
-  }),
-);
+// export const privacySettingsRelations = relations(
+//   privacySettings,
+//   ({ many }) => ({
+//     profilePrivacy: many(profilePrivacy),
+//   }),
+// );
 
 export const accounts = createTable(
   "account",
@@ -601,6 +602,8 @@ export const follows = createTable("follows", (d) => ({
     .timestamp({ withTimezone: true })
     .default(sql`CURRENT_TIMESTAMP`)
     .notNull(),
+  requestedAt: d.timestamp({ withTimezone: true }).defaultNow(),
+  accepted: d.boolean().default(false),
 }), (t) => [
   primaryKey({ columns: [t.followerId, t.followingId] }),
   index().on(t.followerId),

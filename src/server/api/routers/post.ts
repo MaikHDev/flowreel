@@ -1,7 +1,14 @@
 import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { comments, posts, userLikedPosts, users } from "~/server/db/schema";
+import {
+  comments,
+  posts,
+  userLikedPosts,
+  users,
+  follows,
+  profiles,
+} from "~/server/db/schema";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
 export const postRouter = createTRPCRouter({
@@ -19,19 +26,57 @@ export const postRouter = createTRPCRouter({
       z.object({ userName: z.string(), currentUser: z.string().nullable() }),
     )
     .query(async ({ ctx, input }) => {
+      const user = await ctx.db.query.users.findFirst({
+        where: (u, { eq }) => eq(u.name, input.userName),
+      });
+      if (!user) return [];
+
+      const profile = await ctx.db.query.profiles.findFirst({
+        where: (p, { eq }) => eq(p.id, user.id),
+        columns: { defaultPostVisibility: true },
+      });
+
+      const visibility = profile?.defaultPostVisibility ?? "public";
+      const currentUser = input.currentUser;
+
+      let canView = false;
+
+      if (currentUser === user.id) {
+        canView = true;
+      } else if (visibility === "public") {
+        canView = true;
+      } else if (visibility === "followers" && currentUser) {
+        const [follow] = await ctx.db
+          .select()
+          .from(follows)
+          .where(
+            and(
+              eq(follows.followerId, currentUser),
+              eq(follows.followingId, user.id),
+              eq(follows.accepted, true),
+            ),
+          );
+        canView = !!follow;
+      }
+
+      if (!canView) return [];
+
       const userPosts = await ctx.db.query.posts.findMany({
-        where: (posts, { eq }) => eq(posts.userId,
-          ctx.db.select({ id: users.id })
-            .from(users)
-            .where(eq(users.name, input.userName))
-            .limit(1)
-        ),
+        where: (posts, { eq }) =>
+          eq(
+            posts.userId,
+            ctx.db
+              .select({ id: users.id })
+              .from(users)
+              .where(eq(users.name, input.userName))
+              .limit(1),
+          ),
         with: {
           user: {
             columns: {
               name: true,
-              image: true
-            }
+              image: true,
+            },
           },
           comments: {
             with: {
@@ -39,80 +84,84 @@ export const postRouter = createTRPCRouter({
                 columns: {
                   id: true,
                   name: true,
-                  image: true
-                }
+                  image: true,
+                },
               },
               replies: {
                 with: {
                   user: {
                     columns: {
                       name: true,
-                      image: true
-                    }
+                      image: true,
+                    },
                   },
-                  // You can continue nesting if needed
                   replies: {
                     with: {
                       user: {
                         columns: {
                           name: true,
-                          image: true
-                        }
-                      }
-                    }
-                  }
+                          image: true,
+                        },
+                      },
+                    },
+                  },
                 },
-                orderBy: (comments, { asc }) => [asc(comments.createdAt)]
-              }
+                orderBy: (comments, { asc }) => [asc(comments.createdAt)],
+              },
             },
-            where: (comments, { isNull }) => isNull(comments.parentId), // Only top-level comments
-            orderBy: (comments, { asc }) => [asc(comments.createdAt)]
+            where: (comments, { isNull }) => isNull(comments.parentId),
+            orderBy: (comments, { asc }) => [asc(comments.createdAt)],
           },
-          likedBy: input.currentUser ? {
-            where: (likes, { eq }) => eq(likes.userId, input.currentUser!)
-          } : undefined
+          likedBy: input.currentUser
+            ? {
+                where: (likes, { eq }) => eq(likes.userId, input.currentUser!),
+              }
+            : undefined,
         },
-        orderBy: (posts, { desc }) => [desc(posts.createdAt)]
+        orderBy: (posts, { desc }) => [desc(posts.createdAt)],
       });
 
-      // Get like counts separately for performance
-      const postIds = userPosts.map(post => post.id);
+      const postIds = userPosts.map((post) => post.id);
       const likeCounts = await ctx.db
         .select({
           postId: userLikedPosts.postId,
-          count: sql<number>`COUNT(*)`.mapWith(Number)
+          count: sql<number>`COUNT(*)`.mapWith(Number),
         })
         .from(userLikedPosts)
         .where(inArray(userLikedPosts.postId, postIds))
         .groupBy(userLikedPosts.postId);
 
-      const likeCountMap = new Map(likeCounts.map(lc => [lc.postId, lc.count]));
+      const likeCountMap = new Map(
+        likeCounts.map((lc) => [lc.postId, lc.count]),
+      );
 
-      return userPosts.map(post => ({
+      return userPosts.map((post) => ({
         id: post.id,
         message: post.message,
         createdAt: post.createdAt,
         user: post.user,
         likeCount: likeCountMap.get(post.id) ?? 0,
         likedByCurrentUser: post.likedBy && post.likedBy.length > 0,
-        commentCount: post.comments.reduce((total, comment) =>
-          total + 1 + (comment.replies?.length || 0), 0
+        commentCount: post.comments.reduce(
+          (total, comment) => total + 1 + (comment.replies?.length || 0),
+          0,
         ),
-        comments: post.comments.map(comment => ({
+        comments: post.comments.map((comment) => ({
           id: comment.id,
           content: comment.content,
           createdAt: comment.createdAt,
           updatedAt: comment.updatedAt,
           user: comment.user,
-          replies: comment.replies?.map(reply => ({
-            id: reply.id,
-            content: reply.content,
-            createdAt: reply.createdAt,
-            updatedAt: reply.updatedAt,
-            user: reply.user,
-            replies: reply.replies || []
-          })) || []
-        }))
+          replies:
+            comment.replies?.map((reply) => ({
+              id: reply.id,
+              content: reply.content,
+              createdAt: reply.createdAt,
+              updatedAt: reply.updatedAt,
+              user: reply.user,
+              replies: reply.replies || [],
+            })) || [],
+        })),
       }));
     }),
 
@@ -146,13 +195,20 @@ export const postRouter = createTRPCRouter({
     }),
 
   comment: protectedProcedure
-    .input(z.object({ content: z.string().min(1), postId: z.number(), userId: z.string(), parentId: z.number().nullable() }))
-    .mutation(async ({ctx, input}) => {
+    .input(
+      z.object({
+        content: z.string().min(1),
+        postId: z.number(),
+        userId: z.string(),
+        parentId: z.number().nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
       await ctx.db.insert(comments).values({
         content: input.content,
         userId: input.userId,
         postId: input.postId,
         parentId: input.parentId,
-      })
-    })
+      });
+    }),
 });
