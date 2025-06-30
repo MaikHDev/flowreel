@@ -9,7 +9,7 @@ import {
   follows,
   profiles,
 } from "~/server/db/schema";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql, ilike } from "drizzle-orm";
 
 export const postRouter = createTRPCRouter({
   create: protectedProcedure
@@ -210,5 +210,60 @@ export const postRouter = createTRPCRouter({
         postId: input.postId,
         parentId: input.parentId,
       });
+    }),
+  searchPostMessages: protectedProcedure
+    .input(z.object({ query: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      const currentUserId = ctx.session.user.id;
+
+      const postsWithUsers = await ctx.db
+        .select({
+          id: posts.id,
+          message: posts.message,
+          userId: posts.userId,
+          userName: users.name,
+        })
+        .from(posts)
+        .innerJoin(users, eq(posts.userId, users.id))
+        .where(ilike(posts.message, `%${input.query}%`))
+        .orderBy(desc(posts.createdAt));
+
+      const userIds = [...new Set(postsWithUsers.map((p) => p.userId))];
+
+      const profilesList = await ctx.db.query.profiles.findMany({
+        where: (p, { inArray }) => inArray(p.id, userIds),
+        columns: {
+          id: true,
+          defaultPostVisibility: true,
+        },
+      });
+
+      const profileMap = new Map(
+        profilesList.map((p) => [p.id, p.defaultPostVisibility]),
+      );
+
+      const followsList = await ctx.db.query.follows.findMany({
+        where: (f, { and, eq, inArray }) =>
+          and(
+            eq(f.followerId, currentUserId),
+            eq(f.accepted, true),
+            inArray(f.followingId, userIds),
+          ),
+      });
+
+      const followingSet = new Set(followsList.map((f) => f.followingId));
+
+      const filteredPosts = postsWithUsers.filter((post) => {
+        const visibility = profileMap.get(post.userId) ?? "public";
+
+        if (post.userId === currentUserId) return true;
+        if (visibility === "public") return true;
+        if (visibility === "followers" && followingSet.has(post.userId))
+          return true;
+
+        return false;
+      });
+
+      return filteredPosts;
     }),
 });
