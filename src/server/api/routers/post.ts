@@ -88,6 +88,7 @@ export const postRouter = createTRPCRouter({
         with: {
           user: {
             columns: {
+              id: true,
               name: true,
               image: true,
             },
@@ -96,7 +97,6 @@ export const postRouter = createTRPCRouter({
             with: {
               user: {
                 columns: {
-                  id: true,
                   name: true,
                   image: true,
                 },
@@ -123,6 +123,7 @@ export const postRouter = createTRPCRouter({
                 orderBy: (comments, { asc }) => [asc(comments.createdAt)],
               },
             },
+
             where: (comments, { isNull }) => isNull(comments.parentId),
             orderBy: (comments, { asc }) => [asc(comments.createdAt)],
           },
