@@ -53,11 +53,8 @@ export const useSocket = () => {
 
     // Clean up event listeners
     return () => {
-      socket?.off("connect");
-      socket?.off("disconnect");
-      socket?.off("receive_message");
-      socket?.off("failed_remove_message");
-      socket?.off("first_conn_receive_messages");
+      socket?.disconnect();
+      socket?.removeAllListeners();
 
     };
   }, []);
