@@ -1,8 +1,15 @@
 import { z } from "zod";
-
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { comments, posts, userLikedPosts, users } from "~/server/db/schema";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import {
+  comments,
+  posts,
+  userLikedPosts,
+  users,
+  follows,
+  profiles,
+  blocks,
+} from "~/server/db/schema";
+import { and, desc, eq, inArray, sql, ilike } from "drizzle-orm";
 
 export const postRouter = createTRPCRouter({
   create: protectedProcedure
@@ -19,6 +26,55 @@ export const postRouter = createTRPCRouter({
       z.object({ userName: z.string(), currentUser: z.string().nullable() }),
     )
     .query(async ({ ctx, input }) => {
+      const user = await ctx.db.query.users.findFirst({
+        where: (u, { eq }) => eq(u.name, input.userName),
+      });
+      if (!user) return [];
+
+      const profile = await ctx.db.query.profiles.findFirst({
+        where: (p, { eq }) => eq(p.id, user.id),
+        columns: { defaultPostVisibility: true },
+      });
+
+      const visibility = profile?.defaultPostVisibility ?? "public";
+      const currentUser = input.currentUser;
+
+      let canView = false;
+
+      if (currentUser === user.id) {
+        canView = true;
+      } else {
+        const [blocked] = await ctx.db
+          .select()
+          .from(blocks)
+          .where(
+            and(
+              eq(blocks.blockerId, user.id),
+              eq(blocks.blockedId, currentUser!),
+            ),
+          );
+
+        if (!blocked) {
+          if (visibility === "public") {
+            canView = true;
+          } else if (visibility === "followers" && currentUser) {
+            const [follow] = await ctx.db
+              .select()
+              .from(follows)
+              .where(
+                and(
+                  eq(follows.followerId, currentUser),
+                  eq(follows.followingId, user.id),
+                  eq(follows.accepted, true),
+                ),
+              );
+            canView = !!follow;
+          }
+        }
+      }
+
+      if (!canView) return [];
+
       const userPosts = await ctx.db.query.posts.findMany({
         where: (posts, { eq }) =>
           eq(
@@ -53,7 +109,6 @@ export const postRouter = createTRPCRouter({
                       image: true,
                     },
                   },
-                  // You can continue nesting if needed
                   replies: {
                     with: {
                       user: {
@@ -68,7 +123,8 @@ export const postRouter = createTRPCRouter({
                 orderBy: (comments, { asc }) => [asc(comments.createdAt)],
               },
             },
-            where: (comments, { isNull }) => isNull(comments.parentId), // Only top-level comments
+
+            where: (comments, { isNull }) => isNull(comments.parentId),
             orderBy: (comments, { asc }) => [asc(comments.createdAt)],
           },
           likedBy: input.currentUser
@@ -80,7 +136,6 @@ export const postRouter = createTRPCRouter({
         orderBy: (posts, { desc }) => [desc(posts.createdAt)],
       });
 
-      // Get like counts separately for performance
       const postIds = userPosts.map((post) => post.id);
       const likeCounts = await ctx.db
         .select({
@@ -170,5 +225,67 @@ export const postRouter = createTRPCRouter({
         postId: input.postId,
         parentId: input.parentId,
       });
+    }),
+  searchPostMessages: protectedProcedure
+    .input(z.object({ query: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      const currentUserId = ctx.session.user.id;
+
+      const postsWithUsers = await ctx.db
+        .select({
+          id: posts.id,
+          message: posts.message,
+          userId: posts.userId,
+          userName: users.name,
+        })
+        .from(posts)
+        .innerJoin(users, eq(posts.userId, users.id))
+        .where(ilike(posts.message, `%${input.query}%`))
+        .orderBy(desc(posts.createdAt));
+
+      const userIds = [...new Set(postsWithUsers.map((p) => p.userId))];
+
+      const profilesList = await ctx.db.query.profiles.findMany({
+        where: (p, { inArray }) => inArray(p.id, userIds),
+        columns: {
+          id: true,
+          defaultPostVisibility: true,
+        },
+      });
+
+      const profileMap = new Map(
+        profilesList.map((p) => [p.id, p.defaultPostVisibility]),
+      );
+
+      const followsList = await ctx.db.query.follows.findMany({
+        where: (f, { and, eq, inArray }) =>
+          and(
+            eq(f.followerId, currentUserId),
+            eq(f.accepted, true),
+            inArray(f.followingId, userIds),
+          ),
+      });
+
+      const followingSet = new Set(followsList.map((f) => f.followingId));
+
+      const blocksAgainstMe = await ctx.db.query.blocks.findMany({
+        where: (b, { eq }) => eq(b.blockedId, currentUserId),
+        columns: { blockerId: true },
+      });
+      const blockedBySet = new Set(blocksAgainstMe.map((b) => b.blockerId));
+
+      const filteredPosts = postsWithUsers.filter((post) => {
+        const visibility = profileMap.get(post.userId) ?? "public";
+
+        if (blockedBySet.has(post.userId)) return false;
+        if (post.userId === currentUserId) return true;
+        if (visibility === "public") return true;
+        if (visibility === "followers" && followingSet.has(post.userId))
+          return true;
+
+        return false;
+      });
+
+      return filteredPosts;
     }),
 });
