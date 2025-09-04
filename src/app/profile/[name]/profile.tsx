@@ -17,7 +17,7 @@ export type Comment = {
     name: string;
     image: string | null;
   };
-  replies?: {
+  replies: {
     id: number;
     content: string;
     createdAt: Date;
@@ -26,7 +26,7 @@ export type Comment = {
       name: string;
       image: string | null;
     };
-    replies?: {
+    replies: {
       id: number;
       content: string;
       createdAt: Date;
